@@ -149,11 +149,11 @@ void processVideo(char* videoFilename) {
     
     
     
-    // erode( fgMaskMOG, tempImage, Mat(Size(3,3), CV_8UC1));
+    erode( fgMaskMOG, tempImage, Mat(Size(3,3), CV_8UC1));
     //medianBlur(eroded, dst, 5);
-    // dilate( tempImage, motionImage, Mat());
-    // medianBlur(motionImage, tempImage, 5);
-    tempImage = fgMaskMOG;
+    dilate( tempImage, motionImage, Mat());
+    medianBlur(motionImage, tempImage, 5);
+    //tempImage = fgMaskMOG;
     
     int SumX = 0;
     int SumY = 0;
@@ -247,7 +247,7 @@ void processVideo(char* videoFilename) {
 	//SumY = SumY / num;
 	//cout << "X:" << SumX << ", Y:" << SumY << endl;
     imshow("Frame", frame);
-    imshow("FG Mask MOG", fgMaskMOG);
+    imshow("FG Mask MOG", tempImage);
     // imshow("trajectory", trajectoryImage);
     //imshow("FG Mask MOG 2", fgMaskMOG2);
     //get the input from the keyboard
