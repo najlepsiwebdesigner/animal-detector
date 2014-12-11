@@ -73,8 +73,8 @@ trajectoryImage = Mat::zeros( 576, 768, CV_8UC3 );
   //namedWindow("FG Mask MOG 2");
 
   //create Background Subtractor objects
-  pMOG = createBackgroundSubtractorMOG(); //MOG approach
-  pMOG2 = createBackgroundSubtractorMOG2(); //MOG2 approach
+  pMOG = new BackgroundSubtractorMOG(); //MOG approach
+  pMOG2 = new BackgroundSubtractorMOG2(); //MOG2 approach
 
   if(strcmp(argv[1], "-vid") == 0) {
     //input data coming from a video
@@ -128,7 +128,7 @@ void processVideo(char* videoFilename) {
     medianBlur ( frame, tempImage, 5);
     
     //update the background model
-    pMOG->apply(tempImage, fgMaskMOG);
+    pMOG2->operator()(tempImage, fgMaskMOG);
     //pMOG2->apply(frame, fgMaskMOG2);
     //get the frame number and write it on the current frame
     stringstream ss;
@@ -270,7 +270,7 @@ void processImages(char* fistFrameFilename) {
   //read input data. ESC or 'q' for quitting
   while( (char)keyboard != 'q' && (char)keyboard != 27 ){
     //update the background model
-    pMOG->apply(frame, fgMaskMOG);
+    pMOG2->operator()(frame, fgMaskMOG);
     //pMOG2->apply(frame, fgMaskMOG2);
     //get the frame number and write it on the current frame
     size_t index = fn.find_last_of("/");
