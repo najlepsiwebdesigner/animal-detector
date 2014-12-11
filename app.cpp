@@ -56,9 +56,6 @@ int main(int argc, char* argv[])
   //print help information
   help();
 
-
-trajectoryImage = Mat::zeros( 576, 768, CV_8UC3 );
-
   //check for the input parameter correctness
   if(argc != 3) {
     cerr <<"Incorret input list" << endl;
@@ -74,7 +71,8 @@ trajectoryImage = Mat::zeros( 576, 768, CV_8UC3 );
 
   //create Background Subtractor objects
   pMOG = new BackgroundSubtractorMOG(); //MOG approach
-  pMOG2 = new BackgroundSubtractorMOG2(); //MOG2 approach
+  // pMog->
+  // pMOG2 = new BackgroundSubtractorMOG2(); //MOG2 approach
 
   if(strcmp(argv[1], "-vid") == 0) {
     //input data coming from a video
@@ -95,6 +93,11 @@ trajectoryImage = Mat::zeros( 576, 768, CV_8UC3 );
   return EXIT_SUCCESS;
 }
 
+
+
+
+
+
 void processVideo(char* videoFilename) {
   //create the capture object
   VideoCapture capture(videoFilename);
@@ -107,7 +110,7 @@ void processVideo(char* videoFilename) {
   // define positions array
   vector<Point> points;
 
-  // int numberOfFrames = 0;
+  int numberOfFrames = 0;
 
   //read input data. ESC or 'q' for quitting
   while( (char)keyboard != 'q' && (char)keyboard != 27 ){
@@ -120,139 +123,82 @@ void processVideo(char* videoFilename) {
       exit(EXIT_FAILURE);
     }
 
-    // numberOfFrames = numberOfFrames + 1;
+    numberOfFrames = numberOfFrames + 1;
     // cout << numberOfFrames;
 
     // try filtering of input image
     //dst = frame;
-    medianBlur ( frame, tempImage, 5);
+    // medianBlur ( frame, tempImage, 5);
     
     //update the background model
-    pMOG2->operator()(tempImage, fgMaskMOG);
-    //pMOG2->apply(frame, fgMaskMOG2);
-    //get the frame number and write it on the current frame
-    stringstream ss;
-    rectangle(frame, cv::Point(10, 2), cv::Point(150,20),
-              cv::Scalar(255,255,255), -1);
-    ss << totalPath << " pixels";//capture.get(CAP_PROP_POS_FRAMES);
-
-
-    // cout << "total:" << totalPath << endl;
-
-    string frameNumberString = ss.str();
-
-
-
-    putText(frame, frameNumberString.c_str(), cv::Point(15, 15),
-            FONT_HERSHEY_SIMPLEX, 0.5 , cv::Scalar(0,0,0));
-    //show the current frame and the fg masks
-    
-    
+    // pMOG2->operator()(tempImage, fgMaskMOG);
+    pMOG->operator()(frame, fgMaskMOG);
     
     erode( fgMaskMOG, tempImage, Mat(Size(3,3), CV_8UC1));
     //medianBlur(eroded, dst, 5);
     dilate( tempImage, motionImage, Mat());
     medianBlur(motionImage, tempImage, 5);
-    //tempImage = fgMaskMOG;
     
     int SumX = 0;
     int SumY = 0;
     int num = 0;
     int numberOfPixels = tempImage.rows * tempImage.cols;
 
-    //if (numberOfFrames == 0) {
-    //  trajectoryImage = Mat::zeros( tempImage.rows, tempImage.cols, CV_8UC3 );
-    //  cout << "first frame";
-    //}
+    if (numberOfFrames == 0) {
+     trajectoryImage = Mat::zeros( tempImage.rows, tempImage.cols, CV_8UC3 );
+     cout << "first frame";
+    }
 
 
     // calculate center of mass
-    for(int i=0; i<tempImage.rows; i++)
-		for(int j=0; j<tempImage.cols; j++) {
-			int pixelval = tempImage.at<uchar>(i,j);
-			
-			if (pixelval == 255){
-				SumX = SumX + i;
-				SumY = SumY + j;
-				num = num + 1;
-			}
-				//cout <<  pixelval << endl;
-		}
-		//	cout << "test" << endl;
+    for(int i=0; i<tempImage.rows; i++) {
+  		for(int j=0; j<tempImage.cols; j++) {
+  			int pixelval = tempImage.at<uchar>(i,j);
+  			
+  			if (pixelval == 255){
+  				SumX = SumX + i;
+  				SumY = SumY + j;
+  				num = num + 1;
+  			}
+  		}
+    }
     
     double percentage = (num*100)/numberOfPixels;
     if (percentage > 0.3){
-      // cout << SumX << " " << SumY << " " << num << " " << round((double)SumX/num) << " " << round((double)SumY/num) << endl;
-
-      // cout << (num*100)/numberOfPixels << "%";
       int x  = round((double)SumX/num);
       int y = round((double)SumY/num);
 
+      // if (abs(prevX - x) > 50 && abs(prevY - y) > 50)
+      //   points.push_back(Point(y,x));
 
-      // cout << prevY << " " << y << " "<< abs(prevY-y) << endl;
-
-      //if (abs(prevX - x) > 10 && abs(prevY - y) > 10)
-        points.push_back(Point(y,x));
-
-      // cout << points.size() << endl;
-
-      // circle(frame, Point(y,x),5, Scalar(0,0,255),-1); 
-      // circle(trajectoryImage, Point(y,x),1, Scalar(0,0,255),-1); 
-
-      // if (prevX != 0 && prevY != 0)
-      //   line( trajectoryImage, Point( prevY, prevX ), Point(y,x), Scalar( 0, 0, 100 ),  1, 8 );
-
-      // int length = 0;
-
-
-
-
-      // if (prevX != 0 && prevY != 0)
+      circle(frame, Point(y,x),5, Scalar(0,0,255),-1); 
 
       prevX = x;
       prevY = y;
     }  
-    
-
-
 
     prevPoint = Point();
-
-    // if (points.size() < 1)
-      // points.erase(points.begin());
     int counter = 0;
     totalPath = 0;
 
-    for(std::vector<Point>::iterator it = points.begin(); it != points.end(); ++it) { 
-      
+    for(std::vector<Point>::iterator it = points.begin(); it != points.end(); ++it) {  
       if (counter != 0){
         circle(frame, *it,4, Scalar(0,0,255),-1);
         line( frame, prevPoint, *it, Scalar( 100, 0, 0 ),  2, 8 );
-
-
         totalPath = totalPath + round(sqrt(pow(prevPoint.x - (*it).x, 2) + pow(prevPoint.y - (*it).y, 2)));
-        // cout << "counter " << counter <<  "Path:" << totalPath << endl;
       }
 
       prevPoint = *it;
       counter = counter + 1;
-      // length++;
     }
   
-
-
-
-
-	//SumX = SumX / num;
-	//SumY = SumY / num;
-	//cout << "X:" << SumX << ", Y:" << SumY << endl;
     imshow("Frame", frame);
     imshow("FG Mask MOG", tempImage);
-    // imshow("trajectory", trajectoryImage);
-    //imshow("FG Mask MOG 2", fgMaskMOG2);
     //get the input from the keyboard
     keyboard = waitKey( 30 );
   }
+
+
   //delete capture object
   capture.release();
 }
