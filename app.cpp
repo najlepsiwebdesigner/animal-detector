@@ -2,6 +2,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include "opencv2/imgproc/imgproc.hpp"
 #include <opencv2/video/background_segm.hpp>
+#include <opencv2/features2d/features2d.hpp>
 //C
 #include <stdio.h>
 #include <cmath>
@@ -31,6 +32,7 @@ int keyboard;
 
 
 std::vector<std::vector<cv::Point> > contours;
+std::vector<std::vector<cv::Point> > approxContours;
 
 //function declarations
 void help();
@@ -133,17 +135,59 @@ void processVideo(char* videoFilename) {
     // pMOG.set("histor", 3);
     
     erode( fgMaskMOG, motionImage, Mat(Size(1,1), CV_8UC1));
+    erode( fgMaskMOG, motionImage, Mat(Size(1,1), CV_8UC1));
+    erode( fgMaskMOG, motionImage, Mat(Size(1,1), CV_8UC1));
     // dilate( motionImage, fgMaskMOG, Mat(Size(1,1), CV_8UC1));
     motionImage = fgMaskMOG;
 
     // erode( fgMaskMOG, motionImage, Mat(Size(3,3), CV_8UC1));
-    // dilate( motionImage, fgMaskMOG, Mat(Size(25,25), CV_8UC1));
+    // dilate( motionImage, fgMaskMOG, Mat(Size(7,7), CV_8UC1));
 
     // erode( fgMaskMOG, motionImage, Mat(Size(9,9), CV_8UC1));
     // dilate( motionImage, fgMaskMOG, Mat(Size(9,9), CV_8UC1));
     
 
-    cv::findContours(fgMaskMOG,contours,CV_RETR_TREE,CV_CHAIN_APPROX_SIMPLE, Point(0,0) );
+    int SumX = 0;
+    int SumY = 0;
+    int num = 0;
+
+    vector<KeyPoint> keyPoints;
+    SimpleBlobDetector::Params params;
+        params.minThreshold = 40;
+        params.maxThreshold = 60;
+        params.thresholdStep = 5;
+
+        params.minArea = 100; 
+        params.minConvexity = 0.3;
+        params.minInertiaRatio = 0.01;
+
+        params.maxArea = 8000;
+        params.maxConvexity = 10;
+
+        params.filterByColor = false;
+        params.filterByCircularity = false;
+     SimpleBlobDetector blobDetector( params );
+     blobDetector.create("SimpleBlob");
+     blobDetector.detect( fgMaskMOG, keyPoints);
+     drawKeypoints( frame, keyPoints, frame, CV_RGB(0,255,0), DrawMatchesFlags::DEFAULT);
+
+
+    for (int i = 0; i <keyPoints.size(); i++) {
+      // cout << keyPoints[i].pt.x << " " << keyPoints[i].pt.y << " ";
+        SumX = SumX + keyPoints[i].pt.x;
+        SumY = SumY + keyPoints[i].pt.y;
+        num = num + 1;
+    }
+
+    int x  = round((double)SumX/num);
+    int y = round((double)SumY/num);
+
+    cout << "x:" << x << endl << "y:" << y << endl;
+
+
+    circle(frame, Point(x,y),5, Scalar(0,0,255),-1); 
+
+    // cv::findContours(fgMaskMOG,contours,CV_RETR_TREE,CV_CHAIN_APPROX_SIMPLE, Point(0,0) );
     // cv::drawContours(frame,contours,-1,cv::Scalar(0,0,255),2);
     
 
