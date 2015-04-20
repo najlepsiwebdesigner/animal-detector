@@ -1,0 +1,2 @@
+DeltaX DeltaY DeltaXPerc DeltaYPerc SumX SumY SumXN SumYN PercentoX PercentoY DrahaEtal DrahaCorr RozdielDrah RozdielDrahPerc
+-- -- -- -- 38504 43789 25.737968 29.270722 3.351298 5.081723 3077 7319 4242 137.861553
