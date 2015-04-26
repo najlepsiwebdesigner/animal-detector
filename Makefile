@@ -19,15 +19,17 @@ CPPFLAGS = -I/usr/local/Cellar/opencv/2.4.9/include
 PETO_OBJS = peto.o
 FERO_OBJS = fero.o
 CANNY_OBJS = canny.o
+FEAT_OBJS = feat.o
 
 LDFLAGS = -L/usr/local/Cellar/opencv/2.4.9/lib
 LDLIBS =  -lopencv_core -lopencv_imgproc -lopencv_calib3d -lopencv_video \
           -lopencv_features2d -lopencv_ml -lopencv_highgui -lopencv_objdetect \
-          -lopencv_contrib -lopencv_legacy -lopencv_gpu
+          -lopencv_contrib -lopencv_legacy -lopencv_gpu -lopencv_nonfree -lopencv_flann
 
 PETO_TARGET = apps/peto
 FERO_TARGET = apps/fero
 CANNY_TARGET = apps/canny
+FEAT_TARGET = apps/feat
 
 .PHONY: peto
 peto: $(PETO_TARGET)
@@ -50,7 +52,24 @@ canny: $(CANNY_TARGET)
 $(CANNY_TARGET): $(CANNY_OBJS)
 		$(CXX) $(LXFLAGS) $^ $(LDLIBS) -o $@		
 
+		
+.PHONY: feat
+feat: $(FEAT_TARGET)
+$(FEAT_TARGET): $(FEAT_OBJS)
+		$(CXX) $(LqXFLAGS) $^ $(LDLIBS) -o $@		
+
+
+.PHONY: run-feat
+run-feat:
+		./apps/feat features/1.jpg features/2.jpg
+
+
 
 .PHONY: run
 run:
-		./apps/peto -vid ./apps/2.mpeg 
+		./apps/peto -vid ./apps/${ARGS}.mpeg -img ./apps/${ARGS}.jpg
+
+
+.PHONY: runone
+runone:
+		./apps/peto -vid ./apps/1.mpeg -img ./apps/1.jpg

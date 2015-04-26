@@ -5,6 +5,7 @@
 #include <opencv2/features2d/features2d.hpp>
 //C
 #include <stdio.h>
+#include <string.h>
 #include <cmath>
 //C++
 #include <iostream>
@@ -42,9 +43,25 @@ Point previousPoint;
 std::vector<std::vector<cv::Point> > contours;
 std::vector<std::vector<cv::Point> > approxContours;
 
+
+void equalize(Mat & image) {
+    Mat ycrcb;
+    cvtColor(image,ycrcb,CV_BGR2YCrCb);
+    vector<Mat> channels;
+    split(ycrcb,channels);
+    equalizeHist(channels[0], channels[0]);
+    Mat result;
+    merge(channels,ycrcb);
+    cvtColor(ycrcb,result,CV_YCrCb2BGR);
+
+    image = result;
+}
+
+
 //function declarations
 void help();
-void processVideo(char* videoFilename);
+void processVideo(string videoFilename, string videoImageFilename);
+void processVideo(string videoFilename);
 void processImages(char* firstFrameFilename);
 
 void help()
@@ -68,23 +85,24 @@ int main(int argc, char* argv[])
   help();
 
   //check for the input parameter correctness
-  if(argc != 3) {
+  if(argc != 5) {
     cerr <<"Incorret input list" << endl;
     cerr <<"exiting..." << endl;
     return EXIT_FAILURE;
   }
 
-  //create GUI windows
-  namedWindow("Frame");
-  namedWindow("Debug");
-
   //create Background Subtractor objects
-  pMOG = new BackgroundSubtractorMOG(); //MOG approach
+  // pMOG = new BackgroundSubtractorMOG(); //MOG approach
   // pMOG->set("history",2);
 
   if(strcmp(argv[1], "-vid") == 0) {
     //input data coming from a video
-    processVideo(argv[2]);
+    if(strcmp(argv[3], "-img") == 0) {
+      //input data coming from a video
+      processVideo(argv[2], argv[4]);
+    } else {
+      processVideo(argv[2]);
+    }
   }
   else if(strcmp(argv[1], "-img") == 0) {
     //input data coming from a sequence of images
@@ -102,12 +120,18 @@ int main(int argc, char* argv[])
 }
 
 
+void processVideo(string videoFilename, string videoImageFilename) {
+
+  namedWindow("Result");
+  namedWindow("Video");
+  namedWindow("Diff");
+  namedWindow("BackgroundModel");
 
 
+  string vidImageFilename(videoImageFilename);
+  Mat image = imread(vidImageFilename);
+  Mat test = image.clone();
 
-
-void processVideo(char* videoFilename) {
-  //create the capture object
   VideoCapture capture(videoFilename);
   if(!capture.isOpened()){
     //error in opening the video input
@@ -115,48 +139,164 @@ void processVideo(char* videoFilename) {
     exit(EXIT_FAILURE);
   }
 
+  Point previousPoint;
+  Point currentPoint;
+  long frameCounter = 0;
+  
+
   // define positions array
   vector<Point> points;
 
-  int numberOfFrames = 0;
-
   //read input data. ESC or 'q' for quitting
   while( (char)keyboard != 'q' && (char)keyboard != 27 ){
-
-    //read the current frame
+    // read the current frame
     if(!capture.read(frame)) {
       // cerr << "Total pig path is:" << totalPath << endl;
       cerr << "Unable to read next frame." << endl;
       cerr << "Exiting..." << endl;
       exit(EXIT_FAILURE);
     }
-    rectangle(frame, Point(0,0), Point(500,17), Scalar(0,0,0), CV_FILLED);
-    
-    motionImage = frame.clone();
-    // medianBlur ( motionImage, motionImage, 7);    
-    
-    //update the background model
-    pMOG->operator()(motionImage, fgMaskMOG, 0.015);
 
-    dilate( fgMaskMOG, fgMaskMOG, Mat(Size(7,7), CV_8UC1));
-    erode( fgMaskMOG, fgMaskMOG, Mat(Size(7,7), CV_8UC1));
-    rectangle(fgMaskMOG, Point(0,0), Point(frame.cols,17), Scalar(0,0,0), CV_FILLED);
-    rectangle(fgMaskMOG, Point(0,0), Point(17,frame.rows), Scalar(0,0,0), CV_FILLED);
+
+    rectangle(frame, Point(0,0), Point(500,17), Scalar(0,0,0), CV_FILLED);
+    // equalize(frame);
+    // equalize(image);
+
+    Mat result, small;
+
+     // pMOG->operator()(frame, mog);
+
+
+    // cv::resize(image, small,Size(160,120),0,0);
+    // cv::medianBlur(small, small, 9);
+    // cv::resize(small, image, Size(image.cols,image.rows));
+
+    // cv::resize(frame, small,Size(160,120),0,0);
+    // cv::medianBlur(small, small, 9);
+    // cv::resize(small, frame, Size(image.cols,image.rows));
+
+
+
+    // imshow("MOG", mog);
+
+    absdiff(image,frame,result);
+
+    Mat small_diff;
+
+    cv::resize(result, small_diff,Size(320,240),0,0);
+    cv::medianBlur(small_diff, small_diff, 9);
+    cv::resize(small_diff, result, Size(image.cols,image.rows));
+
+
+    // Mat tst = result.clone();
+
+    // equalize(tst);
+    // cvtColor(tst,tst , CV_RGB2GRAY);
+    // cv::threshold(tst,tst,0,255,CV_THRESH_BINARY + CV_THRESH_OTSU);
+    // imshow("tst",tst);
+
+
+    // medianBlur(result,result, 7);    
   
-    numberOfFrames = numberOfFrames + 1;
-    int numberOfWhitePixels = 0;
-    int whitePixelsThreshold = 200;
+    cvtColor(result,result , CV_RGB2GRAY);
+
+    // threshold small values from difference
+    
+    
+    // cv::GaussianBlur(result, result, Size( 13, 13) ,7,7);
+    // cv::threshold(result,result,15,255,THRESH_TOZERO);
+    // cv::threshold(result,result,0,255,THRESH_TOZERO + CV_THRESH_OTSU);
+    Mat diff = result.clone();
+
+    // scale image down and up
+    cv::resize(result, small,Size(160,120),0,0);
+    cv::medianBlur(small, small, 9);
+    cv::resize(small, result, Size(image.cols,image.rows));
+
+
+    // adaptiveThreshold(result, result, 255, CV_ADAPTIVE_THRESH_GAUSSIAN_C, CV_THRESH_BINARY, 7, 0);
+    cv::threshold(result,result,0,255,CV_THRESH_BINARY + CV_THRESH_OTSU); 
+
+
+    // threshold(result, result, 100, 255, 3);
+    
+    erode( result, result, Mat(Size(3,3), CV_8UC1));
+    dilate( result, result, Mat(Size(7,7), CV_8UC1));
+    // erode( result, result, Mat(Size(5,5), CV_8UC1));
+    // dilate( result, result, Mat(Size(20,20), CV_8UC1));
+
+    rectangle(result, Point(0,0), Point(result.cols,17), Scalar(0,0,0), CV_FILLED);
+    rectangle(result, Point(0,0), Point(17,result.rows), Scalar(0,0,0), CV_FILLED);
+    // rectangle(result, Point(result.cols,result.rows), Point(result.cols - 17,0), Scalar(0,0,0), CV_FILLED);
+    // rectangle(result, Point(result.cols,result.rows), Point(0,result.rows - 17), Scalar(0,0,0), CV_FILLED);
+
+    double minVal = 0;
+    double maxVal = 0;
+    Point minLoc, maxLoc;
+
+    minMaxLoc(diff, &minVal, &maxVal, &minLoc, &maxLoc);
+
+
+
+vector<vector<Point> > contours; // storing contour
+vector<Vec4i> hierarchy;
+Mat contoured;
+contoured = result.clone();
+
+findContours( contoured, contours, hierarchy,CV_RETR_CCOMP, CV_CHAIN_APPROX_SIMPLE );
+
+cvtColor(result,result , CV_GRAY2RGB);
+
+for( int i = 0; i< contours.size(); i++ ) // iterate
+{
+    // double a=contourArea( contours[i],false);  //Find the largest area of contour
+    // if(a>largest_area)
+    // {
+    //     largest_area=a;
+    //     largest_contour_index=i;
+    // }
+
+    // double 
+
+    // if ()
+
+    double is_in = pointPolygonTest(contours[i], maxLoc, false);
+
+    if (is_in == 1) {
+      drawContours( result, contours, i, Scalar(255,255,255), CV_FILLED, 8, hierarchy );  
+    } else {
+      drawContours( result, contours, i, Scalar(0,0,0), CV_FILLED, 8, hierarchy );
+    }
+
+    // Scalar color( rand()&255, rand()&255, rand()&255 );
+    // drawContours( result, contours, i, color, CV_FILLED, 8, hierarchy );
+}
+
+
+
+
+
+cvtColor(result,result , CV_RGB2GRAY);
+
+
 
     int minY = 1000;
     int maxY = 0;
     int minX = 1000;
     int maxX = 0;
-    int sumX = 0;
-    int sumY = 0;
+    long sumX = 0;
+    long sumY = 0;
+    long numberOfWhitePixels = 0;
+    long length = 0;
+    long numberOfWhitePixelsMin = 6500;
+    long numberOfWhitePixelsMax = 65000;
+    long minimumDistance = 15;
+    // long maximumDistance = 120;
 
-    for(int i=0; i<fgMaskMOG.rows; i++){
-      for(int j=0; j<fgMaskMOG.cols; j++) {
-        int pixelval = fgMaskMOG.at<uchar>(i,j);
+
+    for(int i=0; i<result.rows; i++){
+      for(int j=0; j<result.cols; j++) {
+        int pixelval = result.at<uchar>(i,j);
         
         if (pixelval == 255){
           numberOfWhitePixels++;
@@ -172,107 +312,161 @@ void processVideo(char* videoFilename) {
       }
     }
 
-    
-    if ((char)keyboard == 's') {
 
+    // Mat test = image.clone();
+
+    for(int i=0; i<result.rows; i++){
+      for(int j=0; j<result.cols; j++) {
+        // int pixelval = result.at<uchar>(i,j);
+        if (!(minX - 75 < j && j < maxX + 75 && minY - 75 < i && i < maxY + 75)) {
+          // cout << "a" << endl;
+          Vec3b color = frame.at<Vec3b>(Point(j,i));
+          test.at<Vec3b>(Point(j,i)) = color; //Vec3b(255,255,255);
+        }
+      }
+    }    
+
+    image = test;
+
+
+// long largest_area = 0;
+// int largest_contour_index = 0;
+
+
+// Rect boundRect;
+// vector<Point> contours_poly;
+
+
+
+
+    
+
+    // if (largest_contour_index > -1) {
+      
+
+      // approxPolyDP(Mat(contours[largest_contour_index]), contours_poly, 3, true);
+      // boundRect = boundingRect(Mat(contours_poly));
+      // rectangle( frame, boundRect.tl(), boundRect.br(), Scalar(255,0,255), 2, 8, 0 );      
+    // }
+
+
+
+cvtColor(result,result , CV_GRAY2RGB);
+
+    rectangle(result, Point(minX-75,minY-75), Point(maxX+75,maxY+75), Scalar(0,0,255), 3);
+
+
+
+
+
+
+
+
+
+
+    if (numberOfWhitePixels == 0) {
+      numberOfWhitePixels = 1;
+    }
+
+    int centerX = round(sumX/numberOfWhitePixels);
+    int centerY = round(sumY/numberOfWhitePixels);
+
+    // compute current point
+    currentPoint =  Point(centerX, centerY);
+    length = round(sqrt(pow(previousPoint.x - currentPoint.x, 2) + pow(previousPoint.y - currentPoint.y, 2)));
+
+    // false detection
+    if (frameCounter != 0 && (numberOfWhitePixels < numberOfWhitePixelsMin || numberOfWhitePixels > numberOfWhitePixelsMax || length < minimumDistance)) {
+      // currentPoint = Point(505, 415);
+      currentPoint = Point(previousPoint.x,previousPoint.y);
+    } 
+
+    circle(frame, previousPoint, 10, Scalar(255,0,0),-1);
+    circle(frame, currentPoint, 10, Scalar(0,255,0),-1);
+
+    circle(result, maxLoc, 10, Scalar(0,0,255),-1);
+
+    points.push_back(currentPoint);  
+
+
+    if ((char)keyboard == 's') {
       string str(videoFilename); 
       cout << str + ".jpg" << endl;
       imwrite(str + ".jpg", frame);
-    } else {
-
-      // compute center
-      if (numberOfWhitePixels > whitePixelsThreshold){
-        // int centerX = round(sumX/numberOfWhitePixels);// (round(sumX/numberOfWhitePixels) + int((minX+maxX)/2)) / 2;
-        // int centerY = round(sumY/numberOfWhitePixels); //(round(sumY/numberOfWhitePixels) + int((minY+maxY)/2)) / 2;
-
-        int centerX = int((minX+maxX)/2);
-        int centerY = int((minY+maxY)/2);
-
-        Point middle(centerX, centerY);
-
-        // draw center
-        circle(frame, middle,10, Scalar(0,0,255),-1);   
-        // add point to collection
-        points.push_back(Point(centerX, centerY));
-// prevPoint = middle;
-      }
-
-      int length = 0;   
-      int totalPath = 0;
-
-      for(int i = 0; i<points.size(); i++) { 
-        if (i != 0){
-          length = round(sqrt(pow(previousPoint.x - points[i].x, 2) + pow(previousPoint.y - points[i].y, 2)));
-
-// circle(frame, points[i],2, Scalar(0,0,0),-1);
-// line( frame, previousPoint, points[i], Scalar( 0, 0, 255 ),  2, 8 );
-          totalPath = totalPath + length;
-
-        }
-        previousPoint = points[i];
-      }      
     }
 
-    imshow("Frame", frame);
-    imshow("Debug", fgMaskMOG);
-  
-    //get the input from the keyboard
-    keyboard = waitKey( 1 );
+
+
+
+    long totalPath = 0;
+    for(long i = 0; i<points.size(); i++) { 
+      if (i != 0){
+        length = round(sqrt(pow(previousPoint.x - points[i].x, 2) + pow(previousPoint.y - points[i].y, 2)));
+        circle(frame, points[i],2, Scalar(0,0,0),-1);
+        line( frame, previousPoint, points[i], Scalar( 0, 0, 255 ),  2, 8 );
+        totalPath = totalPath + length;
+
+      }
+      previousPoint = points[i];
+    }
+
+
+    // cout << totalPath << " " << frameCounter << " " << points.size() << endl;
+
+
+
+    previousPoint = currentPoint;
+    Mat small_result, small_frame, small_backgroud;
+
+    cv::resize(result, small_result,Size(320,240),0,0);
+    // cv::medianBlur(small_result, small_result, 9);
+    // cv::resize(small_result, result, Size(image.cols,image.rows));
+
+    cv::resize(frame, small_frame,Size(320,240),0,0);
+    // cv::medianBlur(small_frame, small_frame, 9);
+    // cv::resize(small_frame, result, Size(image.cols,image.rows));
+
+    cv::resize(diff, small_diff,Size(320,240),0,0);
+    cv::resize(image, small_backgroud,Size(320,240),0,0);
+
+    imshow("BackgroundModel", small_backgroud);
+    imshow("Diff", small_diff);
+    
+    imshow("Result", small_result);
+    imshow("Video", small_frame);
+
+    keyboard = waitKey(1);
+
+    frameCounter++;
+
+   
   }
 
-
-  //delete capture object
   capture.release();
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void processVideo(string videoFilename) {
+
+}
+
 void processImages(char* fistFrameFilename) {
-  //read the first file of the sequence
-  frame = imread(fistFrameFilename);
-  if(!frame.data){
-    //error in opening the first image
-    cerr << "Unable to open first image frame: " << fistFrameFilename << endl;
-    exit(EXIT_FAILURE);
-  }
-  //current image filename
-  string fn(fistFrameFilename);
-  //read input data. ESC or 'q' for quitting
-  while( (char)keyboard != 'q' && (char)keyboard != 27 ){
-    //update the background model
-    pMOG->operator()(frame, fgMaskMOG);
-    //get the frame number and write it on the current frame
-    size_t index = fn.find_last_of("/");
-    if(index == string::npos) {
-      index = fn.find_last_of("\\");
-    }
-    size_t index2 = fn.find_last_of(".");
-    string prefix = fn.substr(0,index+1);
-    string suffix = fn.substr(index2);
-    string frameNumberString = fn.substr(index+1, index2-index-1);
-    istringstream iss(frameNumberString);
-    int frameNumber = 0;
-    iss >> frameNumber;
-    rectangle(frame, cv::Point(10, 2), cv::Point(100,20),
-              cv::Scalar(255,255,255), -1);
-    putText(frame, frameNumberString.c_str(), cv::Point(15, 15),
-            FONT_HERSHEY_SIMPLEX, 0.5 , cv::Scalar(0,0,0));
-    //show the current frame and the fg masks
-    imshow("Frame", frame);
-    imshow("Debug", fgMaskMOG);
-    //get the input from the keyboard
-    keyboard = waitKey( 30 );
-    //search for the next image in the sequence
-    ostringstream oss;
-    oss << (frameNumber + 1);
-    string nextFrameNumberString = oss.str();
-    string nextFrameFilename = prefix + nextFrameNumberString + suffix;
-    //read the next frame
-    frame = imread(nextFrameFilename);
-    if(!frame.data){
-      //error in opening the next image in the sequence
-      cerr << "Unable to open image frame: " << nextFrameFilename << endl;
-      exit(EXIT_FAILURE);
-    }
-    //update the path of the current frame
-    fn.assign(nextFrameFilename);
-  }
+
 }
