@@ -10,6 +10,7 @@
 //C++
 #include <iostream>
 #include <sstream>
+#include <fstream>
 
 using namespace cv;
 using namespace std;
@@ -22,6 +23,50 @@ void help();
 void processVideo(string videoFilename, string videoImageFilename);
 void processVideo(string videoFilename);
 void processImages(char* firstFrameFilename);
+
+
+
+
+
+Point getFrameInfo(Mat & frame); 
+
+Point getFrameInfo(Mat & currentFrame) {
+  int minY = 1000;
+  int maxY;
+  int minX = 1000;
+  int maxX;
+  long sumX = 0;
+  long sumY = 0;
+  long numberOfWhitePixels = 1;
+  Point currentCenter;
+
+    for(int i=0; i<currentFrame.rows; i++){
+      for(int j=0; j<currentFrame.cols; j++) {
+        int pixelval = currentFrame.at<uchar>(i,j);
+        
+        if (pixelval == 255){
+          numberOfWhitePixels++;
+
+          if(minX>j) minX = j;
+          if(maxX<j) maxX = j;
+          if(minY>i) minY = i;
+          if(maxY<i) maxY = i;
+
+          sumX += j;
+          sumY += i;
+        }
+      }
+    }
+
+    currentCenter = Point(round(sumX/numberOfWhitePixels), round(sumY/numberOfWhitePixels));
+
+    return currentCenter;
+}
+
+
+
+
+
 
 void help()
 {
@@ -87,7 +132,7 @@ void processVideo(string videoFilename, string videoImageFilename) {
 
   // background image
   Mat backgroundImage = imread(videoImageFilename);
-  Mat currentFrame; 
+  Mat currentFrame, previousFrame; 
   Mat diffImage;
   Mat smallImage;
   int keyboard = 0;
@@ -96,12 +141,26 @@ void processVideo(string videoFilename, string videoImageFilename) {
   Point currentPoint;
   // positions vector
   vector<Point> points;
+  vector<Point> referencePoints;
 
   VideoCapture capture(videoFilename);
   if(!capture.isOpened()){
     cerr << "Unable to open video file: " << videoFilename << endl;
     exit(EXIT_FAILURE);
   }
+
+
+  std::ifstream infile("apps/reference/2.txt");
+  int a, b;
+  while (infile >> a >> b)
+  {
+    Point newPoint = Point(a,b);
+    referencePoints.push_back(newPoint);
+
+  }
+
+cout << referencePoints.size() << endl;
+
 
   //read input data. ESC or 'q' for quitting
   while( (char)keyboard != 'q' && (char)keyboard != 27 ){
@@ -122,9 +181,9 @@ void processVideo(string videoFilename, string videoImageFilename) {
     
     // calculate diffence between current frame, rescale and blur it
     absdiff(backgroundImage,currentFrame,diffImage);
-    cv::resize(diffImage, smallImage,Size(160,120),0,0);
-    cv::medianBlur(smallImage, smallImage, 13);
-    cv::resize(smallImage, diffImage, Size(backgroundImage.cols,backgroundImage.rows));
+    resize(diffImage, smallImage,Size(160,120),0,0);
+    medianBlur(smallImage, smallImage, 13);
+    resize(smallImage, diffImage, Size(backgroundImage.cols,backgroundImage.rows));
     cvtColor(diffImage,diffImage , CV_RGB2GRAY);
 
     // locate most different pixel in filtered frame to background 
@@ -134,15 +193,17 @@ void processVideo(string videoFilename, string videoImageFilename) {
     minMaxLoc(diffImage, &minVal, &maxVal, &minLoc, &maxLoc);
     
     // threshold image
-    cv::threshold(diffImage,diffImage,0,255,CV_THRESH_BINARY + CV_THRESH_OTSU); 
-    erode( diffImage, diffImage, Mat(Size(3,3), CV_8UC1));
-    dilate( diffImage, diffImage, Mat(Size(7,7), CV_8UC1));
+    cv::threshold(diffImage,diffImage,254,255,CV_THRESH_BINARY + CV_THRESH_OTSU); 
+erode( diffImage, diffImage, Mat(Size(3,3), CV_8UC1));
+    dilate( diffImage, diffImage, Mat(Size(20,20), CV_8UC1));
 
     // fix threshold errs
     rectangle(diffImage, Point(0,0), Point(diffImage.cols,17), Scalar(0,0,0), CV_FILLED);
     rectangle(diffImage, Point(0,0), Point(17,diffImage.rows), Scalar(0,0,0), CV_FILLED);
     // rectangle(result, Point(result.cols,result.rows), Point(result.cols - 17,0), Scalar(0,0,0), CV_FILLED);
     // rectangle(result, Point(result.cols,result.rows), Point(0,result.rows - 17), Scalar(0,0,0), CV_FILLED);
+    
+    
 
 
 
@@ -178,10 +239,13 @@ void processVideo(string videoFilename, string videoImageFilename) {
     long sumX = 0;
     long sumY = 0;
     long numberOfWhitePixels = 1;
+
+
     long length = 0;
     long numberOfWhitePixelsMin = 4500;
     long numberOfWhitePixelsMax = 65000;
-    long minimumDistance = 25;
+    long minimumDistance = 10;
+    int rectangleOffset = 35;
 
     for(int i=0; i<diffImage.rows; i++){
       for(int j=0; j<diffImage.cols; j++) {
@@ -206,7 +270,10 @@ void processVideo(string videoFilename, string videoImageFilename) {
     Mat newBackgroundImage = backgroundImage.clone();
     for(int i=0; i<diffImage.rows; i++){
       for(int j=0; j<diffImage.cols; j++) {
-        if (!(minX - 75 < j && j < maxX + 75 && minY - 75 < i && i < maxY + 75)) {
+        if (!(minX - rectangleOffset < j 
+            && j < maxX + rectangleOffset 
+            && minY - rectangleOffset < i 
+            && i < maxY + rectangleOffset)) {
           Vec3b color = currentFrame.at<Vec3b>(Point(j,i));
           newBackgroundImage.at<Vec3b>(Point(j,i)) = color; //Vec3b(255,255,255);
         }
@@ -228,14 +295,30 @@ void processVideo(string videoFilename, string videoImageFilename) {
     points.push_back(currentPoint);  
 
 
+// ### 6. calculate center of movement
+    cvtColor(diffImage,diffImage , CV_GRAY2RGB);
+
+    Mat motionImage;
+    if (frameCounter != 0) {
+      absdiff(currentFrame, previousFrame, motionImage);
+      cvtColor(motionImage,motionImage , CV_RGB2GRAY);
+      rectangle(motionImage, Point(0,0), Point(motionImage.cols,17), Scalar(0), CV_FILLED);
+      rectangle(motionImage, Point(0,0), Point(17,motionImage.rows), Scalar(0), CV_FILLED);
+      threshold(motionImage,motionImage,254,255,CV_THRESH_BINARY + CV_THRESH_OTSU); 
+      // erode(motionImage, motionImage, Mat(Size(5,5), CV_8UC1));
+
+      Point motionCenter = getFrameInfo(motionImage);
+      // circle(diffImage, motionCenter, 10, Scalar(0,255,255),-1); // motionCenter color is yellow
+    } 
 
     // draw bounding box to differential image
-    cvtColor(diffImage,diffImage , CV_GRAY2RGB);
-    rectangle(diffImage, Point(minX-75,minY-75), Point(maxX+75,maxY+75), Scalar(0,0,255), 3);
+    
+    rectangle(diffImage, Point(minX - rectangleOffset,minY - rectangleOffset), Point(maxX + rectangleOffset,maxY + rectangleOffset), Scalar(0,0,255), 3);
 
-    circle(currentFrame, previousPoint, 10, Scalar(255,0,0),-1);
-    circle(currentFrame, currentPoint, 10, Scalar(0,255,0),-1);
-    circle(diffImage, maxLoc, 10, Scalar(0,0,255),-1);
+    // circle(diffImage, previousPoint, 10, Scalar(255,0,0),-1); // prev Point is blue
+    circle(diffImage, currentPoint, 10, Scalar(0,255,0),-1); // current Point is green
+    circle(diffImage, referencePoints[points.size()], 10, Scalar(255,0,255),-1); // reference is pink
+    // circle(diffImage, maxLoc, 10, Scalar(0,0,255),-1); // maximum is red
 
     if ((char)keyboard == 's') {
       string str(videoFilename); 
@@ -263,9 +346,17 @@ void processVideo(string videoFilename, string videoImageFilename) {
     imshow("Video", currentFrame);
 
     previousPoint = currentPoint;
+    previousFrame = currentFrame.clone(); // frame.clone(); !!!
     keyboard = waitKey(1);
     frameCounter++;
   }
+
+  std::ofstream resultFile("results.txt", std::ios_base::app | std::ios_base::out);
+
+  for(long i = 0; i < points.size(); i++) { 
+    resultFile << points[i].x << " " << points[i].y << endl;
+  }
+
 
   capture.release();
 }
