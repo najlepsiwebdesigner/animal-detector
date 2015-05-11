@@ -67,7 +67,7 @@ run-feat:
 
 .PHONY: run
 run:
-		./apps/peto -vid ./apps/${ARGS}.mpeg -img ./apps/${ARGS}.jpg
+		./apps/peto ${ARGS}
 
 
 .PHONY: runone

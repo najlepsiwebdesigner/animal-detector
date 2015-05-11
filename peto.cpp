@@ -87,31 +87,33 @@ int main(int argc, char* argv[])
   help();
 
   //check for the input parameter correctness
-  if(argc != 5) {
+  if(argc != 2) {
     cerr <<"Incorrect input list" << endl;
     cerr <<"exiting..." << endl;
     return EXIT_FAILURE;
   }
 
-  if(strcmp(argv[1], "-vid") == 0) {
-    //input data coming from a video
-    if(strcmp(argv[3], "-img") == 0) {
-      //input data coming from a video
-      processVideo(argv[2], argv[4]);
-    } else {
-      processVideo(argv[2]);
-    }
-  }
-  else if(strcmp(argv[1], "-img") == 0) {
-    //input data coming from a sequence of images
-    processImages(argv[2]);
-  }
-  else {
-    //error in reading input parameters
-    cerr <<"Please, check the input parameters." << endl;
-    cerr <<"Exiting..." << endl;
-    return EXIT_FAILURE;
-  }
+  processVideo(argv[1]);
+
+  // if(strcmp(argv[1], "-vid") == 0) {
+  //   //input data coming from a video
+  //   if(strcmp(argv[3], "-img") == 0) {
+  //     //input data coming from a video
+  //     processVideo(argv[2], argv[4]);
+  //   } else {
+  //     processVideo(argv[2]);
+  //   }
+  // }
+  // else if(strcmp(argv[1], "-img") == 0) {
+  //   //input data coming from a sequence of images
+  //   processImages(argv[2]);
+  // }
+  // else {
+  //   //error in reading input parameters
+  //   cerr <<"Please, check the input parameters." << endl;
+  //   cerr <<"Exiting..." << endl;
+  //   return EXIT_FAILURE;
+  // }
   //destroy GUI windows
   destroyAllWindows();
   return EXIT_SUCCESS;
@@ -123,7 +125,7 @@ int main(int argc, char* argv[])
 
 
 
-void processVideo(string videoFilename, string videoImageFilename) {
+void processVideo(string inputNumber) {
 
   namedWindow("Result");
   namedWindow("Video");
@@ -131,7 +133,11 @@ void processVideo(string videoFilename, string videoImageFilename) {
   namedWindow("BackgroundModel");
 
   // background image
-  Mat backgroundImage = imread(videoImageFilename);
+  String backgroundFilename;
+
+  backgroundFilename = backgroundFilename +  "apps/" + inputNumber + ".jpg";
+  Mat backgroundImage = imread(backgroundFilename);
+
   Mat currentFrame, previousFrame; 
   Mat diffImage;
   Mat smallImage;
@@ -143,14 +149,24 @@ void processVideo(string videoFilename, string videoImageFilename) {
   vector<Point> points;
   vector<Point> referencePoints;
 
+  String videoFilename;
+
+  cout << videoFilename << endl;
+
+  videoFilename  = videoFilename + "apps/" + inputNumber + ".mpeg";
+
   VideoCapture capture(videoFilename);
   if(!capture.isOpened()){
-    cerr << "Unable to open video file: " << videoFilename << endl;
+    cerr << "Unable to open video file: " << inputNumber << endl;
     exit(EXIT_FAILURE);
   }
 
+  cout << "start" << endl;
 
-  std::ifstream infile("apps/reference/2.txt");
+  String inFilename;
+  inFilename = inFilename + "reference/" + inputNumber + ".txt";
+
+  std::ifstream infile(inFilename);
   int a, b;
   while (infile >> a >> b)
   {
@@ -159,7 +175,7 @@ void processVideo(string videoFilename, string videoImageFilename) {
 
   }
 
-cout << referencePoints.size() << endl;
+// cout << referencePoints.size() << endl;
 
 
   //read input data. ESC or 'q' for quitting
@@ -168,7 +184,8 @@ cout << referencePoints.size() << endl;
     if(!capture.read(currentFrame)) {
       cerr << "Unable to read next frame." << endl;
       cerr << "Exiting..." << endl;
-      exit(EXIT_FAILURE);
+      // 
+      break;
     }
 
 
@@ -244,7 +261,7 @@ erode( diffImage, diffImage, Mat(Size(3,3), CV_8UC1));
     long length = 0;
     long numberOfWhitePixelsMin = 4500;
     long numberOfWhitePixelsMax = 65000;
-    long minimumDistance = 10;
+    long minimumDistance = 15;
     int rectangleOffset = 35;
 
     for(int i=0; i<diffImage.rows; i++){
@@ -307,7 +324,7 @@ erode( diffImage, diffImage, Mat(Size(3,3), CV_8UC1));
       threshold(motionImage,motionImage,254,255,CV_THRESH_BINARY + CV_THRESH_OTSU); 
       // erode(motionImage, motionImage, Mat(Size(5,5), CV_8UC1));
 
-      Point motionCenter = getFrameInfo(motionImage);
+      // Point motionCenter = getFrameInfo(motionImage);
       // circle(diffImage, motionCenter, 10, Scalar(0,255,255),-1); // motionCenter color is yellow
     } 
 
@@ -325,6 +342,8 @@ erode( diffImage, diffImage, Mat(Size(3,3), CV_8UC1));
       cout << str + ".jpg" << endl;
       imwrite(str + ".jpg", currentFrame);
     }
+// 
+    // std::ofstream pathFile("results/5_path.txt", std::ios_base::app | std::ios_base::out);
 
     // calculate total path until this frame
     long totalPath = 0;
@@ -334,10 +353,12 @@ erode( diffImage, diffImage, Mat(Size(3,3), CV_8UC1));
         circle(currentFrame, points[i],2, Scalar(0,0,0),-1);
         line( currentFrame, previousPoint, points[i], Scalar( 0, 0, 255 ),  2, 8 );
         totalPath = totalPath + length;
-
+        // cout << referencePoints[i].x << " " << referencePoints[i].y << endl;
       }
       previousPoint = points[i];
     }
+
+    // pathFile << totalPath << endl;
 
     
     // imshow("BackgroundModel", small_backgroud);
@@ -351,12 +372,55 @@ erode( diffImage, diffImage, Mat(Size(3,3), CV_8UC1));
     frameCounter++;
   }
 
-  std::ofstream resultFile("results.txt", std::ios_base::app | std::ios_base::out);
+  String outFile;
+  outFile = outFile + "results/" + inputNumber + ".csv";
+
+  std::ofstream resultFile(outFile, std::ios_base::app | std::ios_base::out);
+
+  resultFile << "X" << ";" << "Y" << ";" << "refX" << ";" 
+             << "refY" << ";" << "path" << ";" << "refPath" 
+             << ";" << "deltaX" << ";" << "deltaY" << ";" << "deltaX%" << ";" << "deltaY%" << endl;
+  
+
+  int stepLen = 0;
+  int refLen = 0;
+
+  int totalLen = 0;
+  int totalRefLen = 0;
+
 
   for(long i = 0; i < points.size(); i++) { 
-    resultFile << points[i].x << " " << points[i].y << endl;
+
+    if (referencePoints[i].x == 522 && referencePoints[i].y == 416) {
+      points[i].x = 522;
+      points[i].y = 416;
+    }
+
+    if (i > 0){
+      stepLen = round(sqrt(pow(points[i-1].x - points[i].x, 2) + pow(points[i-1].y - points[i].y, 2)));
+      refLen = round(sqrt(pow(referencePoints[i-1].x - referencePoints[i].x, 2) + pow(referencePoints[i-1].y - referencePoints[i].y, 2)));
+
+      totalLen += stepLen;
+      totalRefLen += refLen;
+
+      cout << totalLen << " " << totalRefLen << endl;
+    }
+    
+
+    double deltaXPerc = 0;
+    double deltaYPerc = 0;
+
+    deltaXPerc = (abs(points[i].x - referencePoints[i].x)*100)/768;
+    deltaYPerc = (abs(points[i].y - referencePoints[i].y)*100)/576;
+
+    resultFile << points[i].x << ";" << points[i].y << ";" << referencePoints[i].x 
+               << ";" << referencePoints[i].y << ";" << totalLen << ";" 
+               << totalRefLen << ";" << abs(points[i].x - referencePoints[i].x) 
+               << ";" << abs(points[i].y - referencePoints[i].y) << ";" 
+              << deltaXPerc << ";" << deltaYPerc << endl;
   }
 
+  cout << "finish" << endl;
 
   capture.release();
 }
@@ -379,9 +443,9 @@ erode( diffImage, diffImage, Mat(Size(3,3), CV_8UC1));
 
 
 
-void processVideo(string videoFilename) {
+// void processVideo(string videoFilename) {
 
-}
+// }
 
 void processImages(char* fistFrameFilename) {
 
