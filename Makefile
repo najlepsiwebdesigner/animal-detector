@@ -1,3 +1,4 @@
+.DEFAULT_GOAL := app
 INCLUDE = -I/usr/X11R6/include/
 LIBDIR  = -L/usr/X11R6/lib
 
